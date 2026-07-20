@@ -8,7 +8,7 @@ exports.search = async (req, res) => {
     const where = {};
 
     if (keyword) where.name = { [Op.like]: `%${keyword}%` };
-    if (city) where.city = city;
+    if (city) where.city = { [Op.like]: `%${city}%` };
     if (category) where.category = { [Op.like]: `%${category}%` };
 
     const { count, rows } = await Restaurant.findAndCountAll({
