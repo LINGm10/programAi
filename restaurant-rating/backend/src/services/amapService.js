@@ -30,7 +30,7 @@ exports.searchRestaurants = async (params) => {
       amap_id: poi.id,
       name: poi.name,
       address: poi.address,
-      phone: Array.isArray(poi.tel) ? poi.tel.join(',') : String(poi.tel || ''),
+      phone: typeof poi.tel === 'string' ? poi.tel : (Array.isArray(poi.tel) ? poi.tel.join(',') : String(poi.tel || '')),
       category: poi.type,
       latitude: poi.location?.split(',')[1],
       longitude: poi.location?.split(',')[0],
@@ -54,6 +54,8 @@ exports.searchAllRestaurants = async (params) => {
 
   // 逐页获取剩余数据
   for (let page = 2; page <= maxPages; page++) {
+    // 添加延迟避免频率限制
+    await new Promise(resolve => setTimeout(resolve, 300));
     const result = await exports.searchRestaurants({ keyword, city, category, page, pageSize });
     allRestaurants.push(...result.restaurants);
     if (result.restaurants.length === 0) break;
