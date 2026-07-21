@@ -30,7 +30,7 @@ exports.searchRestaurants = async (params) => {
       amap_id: poi.id,
       name: poi.name,
       address: poi.address,
-      phone: poi.tel,
+      phone: Array.isArray(poi.tel) ? poi.tel.join(',') : String(poi.tel || ''),
       category: poi.type,
       latitude: poi.location?.split(',')[1],
       longitude: poi.location?.split(',')[0],
