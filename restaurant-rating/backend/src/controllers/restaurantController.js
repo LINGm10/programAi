@@ -27,7 +27,7 @@ exports.search = async (req, res) => {
 // 通过地址搜索周边餐厅
 exports.searchNearby = async (req, res) => {
   try {
-    const { address, city, keyword, radius, page = 1, limit = 20 } = req.query;
+    const { address, city, keyword, radius, page = 1, limit = 50 } = req.query;
 
     if (!address) {
       return res.status(400).json({ error: '请输入地址' });
@@ -36,18 +36,25 @@ exports.searchNearby = async (req, res) => {
     // 1. 地理编码：地址转坐标
     const geoResult = await amapService.geocode(address, city);
 
-    // 2. 周边搜索餐厅
+    // 2. 周边搜索餐厅（增大半径和数量）
     const result = await amapService.searchNearby({
       longitude: geoResult.longitude,
       latitude: geoResult.latitude,
       keyword,
-      radius: radius ? parseInt(radius) : 3000,
+      radius: radius ? parseInt(radius) : 5000,
       page: parseInt(page),
       pageSize: parseInt(limit),
     });
 
+    // 3. 按距离排序
+    const sortedRestaurants = result.restaurants.sort((a, b) => {
+      const distA = parseFloat(a.distance) || 99999;
+      const distB = parseFloat(b.distance) || 99999;
+      return distA - distB;
+    });
+
     res.json({
-      restaurants: result.restaurants,
+      restaurants: sortedRestaurants,
       total: result.total,
       page: parseInt(page),
       location: {

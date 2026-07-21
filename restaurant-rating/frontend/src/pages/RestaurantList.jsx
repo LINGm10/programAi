@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Input, Row, Col, Pagination, Spin, Empty, message, Select, Slider } from 'antd';
+import { Input, Row, Col, Pagination, Spin, Empty, message, Slider, Tag } from 'antd';
 import { useSearchParams } from 'react-router-dom';
+import { EnvironmentOutlined } from '@ant-design/icons';
 import RestaurantCard from '../components/RestaurantCard';
-import AMap from '../components/AMap';
 import { searchRestaurantsNearby } from '../services/restaurant';
 
 const { Search } = Input;
-const { Option } = Select;
 
 const RestaurantList = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -15,7 +14,7 @@ const RestaurantList = () => {
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [location, setLocation] = useState(null);
-  const [radius, setRadius] = useState(3000);
+  const [radius, setRadius] = useState(5000);
 
   const address = searchParams.get('address') || '';
   const keyword = searchParams.get('keyword') || '';
@@ -29,7 +28,7 @@ const RestaurantList = () => {
   const loadRestaurants = async () => {
     setLoading(true);
     try {
-      const data = await searchRestaurantsNearby({ address, keyword, page, limit: 20, radius });
+      const data = await searchRestaurantsNearby({ address, keyword, page, limit: 50, radius });
       setRestaurants(data.restaurants);
       setTotal(data.total);
       setLocation(data.location);
@@ -75,59 +74,63 @@ const RestaurantList = () => {
             />
           </Col>
           <Col span={6}>
-            <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>搜索半径：{radius}米</label>
+            <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>搜索半径：{radius >= 1000 ? `${radius/1000}km` : `${radius}m`}</label>
             <Slider
               min={500}
-              max={5000}
+              max={10000}
               step={500}
               value={radius}
               onChange={setRadius}
               marks={{
                 500: '500m',
                 1000: '1km',
-                2000: '2km',
                 3000: '3km',
                 5000: '5km',
+                10000: '10km',
               }}
             />
           </Col>
         </Row>
+        {location && (
+          <div style={{ marginTop: 12, padding: '8px 12px', background: '#f0f5ff', borderRadius: 4, display: 'inline-block' }}>
+            <EnvironmentOutlined style={{ color: '#1890ff', marginRight: 8 }} />
+            <span style={{ color: '#666' }}>定位：</span>
+            <span style={{ fontWeight: 500 }}>{location.formattedAddress}</span>
+            <span style={{ marginLeft: 16, color: '#666' }}>共找到 <strong style={{ color: '#1890ff' }}>{total}</strong> 家餐厅</span>
+          </div>
+        )}
       </div>
 
-      <Row gutter={24}>
-        <Col span={16}>
-          <Spin spinning={loading}>
-            {restaurants.length === 0 ? (
-              <Empty description="请输入地址搜索周边餐厅" style={{ marginTop: 100 }} />
-            ) : (
-              <>
-                {restaurants.map((r) => (
-                  <RestaurantCard key={r.amap_id} restaurant={r} />
-                ))}
-                <Pagination
-                  current={page}
-                  total={total}
-                  pageSize={20}
-                  onChange={setPage}
-                  style={{ textAlign: 'center', marginTop: 24 }}
-                />
-              </>
-            )}
-          </Spin>
-        </Col>
-
-        <Col span={8}>
-          {location && (
-            <div style={{ position: 'sticky', top: 24 }}>
-              <div style={{ padding: 12, background: '#f5f5f5', borderRadius: 4, marginBottom: 16 }}>
-                <div style={{ fontSize: 12, color: '#666' }}>定位地址：</div>
-                <div style={{ fontSize: 14, fontWeight: 500 }}>{location.formattedAddress}</div>
-              </div>
-              <AMap markers={restaurants} center={location} style={{ height: 600 }} />
-            </div>
-          )}
-        </Col>
-      </Row>
+      {/* 餐厅列表 - 全宽 */}
+      <Spin spinning={loading}>
+        {restaurants.length === 0 ? (
+          <Empty description="请输入地址搜索周边餐厅" style={{ marginTop: 100 }} />
+        ) : (
+          <>
+            <Row gutter={[16, 16]}>
+              {restaurants.map((r) => (
+                <Col key={r.amap_id} xs={24} sm={12} md={8} lg={6}>
+                  <div style={{ position: 'relative' }}>
+                    <RestaurantCard restaurant={r} />
+                    {r.distance && (
+                      <Tag color="blue" style={{ position: 'absolute', top: 8, right: 8, margin: 0 }}>
+                        {r.distance >= 1000 ? `${(r.distance/1000).toFixed(1)}km` : `${r.distance}m`}
+                      </Tag>
+                    )}
+                  </div>
+                </Col>
+              ))}
+            </Row>
+            <Pagination
+              current={page}
+              total={total}
+              pageSize={50}
+              onChange={setPage}
+              style={{ textAlign: 'center', marginTop: 24 }}
+            />
+          </>
+        )}
+      </Spin>
     </div>
   );
 };
