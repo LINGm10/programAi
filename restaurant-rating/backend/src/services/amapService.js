@@ -41,6 +41,30 @@ exports.searchRestaurants = async (params) => {
   };
 };
 
+exports.searchAllRestaurants = async (params) => {
+  const { keyword, city, category, pageSize = 25 } = params;
+  const allRestaurants = [];
+
+  // 获取第一页，确定总数
+  const firstPage = await exports.searchRestaurants({ keyword, city, category, page: 1, pageSize });
+  allRestaurants.push(...firstPage.restaurants);
+
+  const totalPages = Math.ceil(firstPage.total / pageSize);
+  const maxPages = Math.min(totalPages, 40); // 高德API最多返回1000条
+
+  // 逐页获取剩余数据
+  for (let page = 2; page <= maxPages; page++) {
+    const result = await exports.searchRestaurants({ keyword, city, category, page, pageSize });
+    allRestaurants.push(...result.restaurants);
+    if (result.restaurants.length === 0) break;
+  }
+
+  return {
+    restaurants: allRestaurants,
+    total: allRestaurants.length,
+  };
+};
+
 exports.getRestaurantDetail = async (amapId) => {
   const response = await client.get('/place/detail', {
     params: {

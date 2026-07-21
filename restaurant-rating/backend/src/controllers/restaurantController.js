@@ -52,7 +52,7 @@ exports.getById = async (req, res) => {
 exports.syncFromAmap = async (req, res) => {
   try {
     const { city, keyword, category } = req.body;
-    const result = await amapService.searchRestaurants({ keyword, city, category });
+    const result = await amapService.searchAllRestaurants({ keyword, city, category });
 
     let synced = 0;
     for (const poi of result.restaurants) {
