@@ -53,40 +53,82 @@ exports.geocode = async (address, city) => {
   };
 };
 
-// 周边搜索餐厅
+// 周边搜索餐厅（自动翻页获取所有结果）
 exports.searchNearby = async (params) => {
-  const { longitude, latitude, keyword, radius = 3000, page = 1, pageSize = 20 } = params;
+  const { longitude, latitude, keyword, radius = 5000, page = 1, pageSize = 25 } = params;
+  const allRestaurants = [];
 
-  const response = await client.get('/place/around', {
+  // 获取第一页
+  const firstPage = await client.get('/place/around', {
     params: {
       key: config.key,
       keywords: keyword || '餐厅',
       location: `${longitude},${latitude}`,
       radius,
       offset: pageSize,
-      page,
+      page: 1,
       extensions: 'all',
     },
   });
 
-  if (response.data.status !== '1') {
-    throw new Error(response.data.info || '高德API调用失败');
+  if (firstPage.data.status !== '1') {
+    throw new Error(firstPage.data.info || '高德API调用失败');
+  }
+
+  const total = parseInt(firstPage.data.count) || 0;
+  const totalPages = Math.ceil(total / pageSize);
+  const maxPages = Math.min(totalPages, 40); // 高德最多返回1000条
+
+  // 处理第一页数据
+  allRestaurants.push(...firstPage.data.pois.map((poi) => ({
+    amap_id: poi.id,
+    name: poi.name,
+    address: poi.address,
+    phone: typeof poi.tel === 'string' ? poi.tel : (Array.isArray(poi.tel) ? poi.tel.join(',') : String(poi.tel || '')),
+    category: poi.type,
+    latitude: poi.location?.split(',')[1],
+    longitude: poi.location?.split(',')[0],
+    city: poi.cityname,
+    district: poi.adname,
+    distance: poi.distance,
+  })));
+
+  // 逐页获取剩余数据
+  for (let p = 2; p <= maxPages; p++) {
+    await new Promise(resolve => setTimeout(resolve, 200)); // 避免频率限制
+    const response = await client.get('/place/around', {
+      params: {
+        key: config.key,
+        keywords: keyword || '餐厅',
+        location: `${longitude},${latitude}`,
+        radius,
+        offset: pageSize,
+        page: p,
+        extensions: 'all',
+      },
+    });
+
+    if (response.data.status === '1' && response.data.pois.length > 0) {
+      allRestaurants.push(...response.data.pois.map((poi) => ({
+        amap_id: poi.id,
+        name: poi.name,
+        address: poi.address,
+        phone: typeof poi.tel === 'string' ? poi.tel : (Array.isArray(poi.tel) ? poi.tel.join(',') : String(poi.tel || '')),
+        category: poi.type,
+        latitude: poi.location?.split(',')[1],
+        longitude: poi.location?.split(',')[0],
+        city: poi.cityname,
+        district: poi.adname,
+        distance: poi.distance,
+      })));
+    } else {
+      break;
+    }
   }
 
   return {
-    restaurants: response.data.pois.map((poi) => ({
-      amap_id: poi.id,
-      name: poi.name,
-      address: poi.address,
-      phone: typeof poi.tel === 'string' ? poi.tel : (Array.isArray(poi.tel) ? poi.tel.join(',') : String(poi.tel || '')),
-      category: poi.type,
-      latitude: poi.location?.split(',')[1],
-      longitude: poi.location?.split(',')[0],
-      city: poi.cityname,
-      district: poi.adname,
-      distance: poi.distance,
-    })),
-    total: parseInt(response.data.count) || 0,
+    restaurants: allRestaurants,
+    total: allRestaurants.length,
   };
 };
 
