@@ -5,7 +5,7 @@ const auth = require('../middleware/auth');
 const admin = require('../middleware/admin');
 
 router.get('/search', restaurantController.search);
-router.get('/nearby', restaurantController.getNearby);
+router.get('/nearby', restaurantController.searchNearby);
 router.get('/:id', restaurantController.getById);
 router.post('/sync-amap', auth, admin, restaurantController.syncFromAmap);
 router.post('/', auth, admin, restaurantController.create);
