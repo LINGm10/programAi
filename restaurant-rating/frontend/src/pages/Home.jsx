@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Input, Select, Button, Row, Col, List, Tabs, Card, Typography } from 'antd';
+import { Input, Button, Row, Col, List, Tabs, Card, Typography } from 'antd';
 import { SearchOutlined, TrophyOutlined, FireOutlined, StarOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import RestaurantCard from '../components/RestaurantCard';
@@ -11,7 +11,7 @@ const { Title } = Typography;
 
 const Home = () => {
   const [keyword, setKeyword] = useState('');
-  const [city, setCity] = useState('');
+  const [address, setAddress] = useState('');
   const [restaurants, setRestaurants] = useState([]);
   const [rankings, setRankings] = useState({ topRated: [], mostReviewed: [], trending: [] });
   const navigate = useNavigate();
@@ -48,7 +48,13 @@ const Home = () => {
   };
 
   const handleSearch = () => {
-    navigate(`/restaurants?keyword=${keyword}&city=${city}`);
+    if (address) {
+      // 有地址，跳转到地址搜索页面
+      navigate(`/restaurants?address=${encodeURIComponent(address)}&keyword=${encodeURIComponent(keyword)}`);
+    } else if (keyword) {
+      // 只有关键词，跳转到关键词搜索
+      navigate(`/restaurants?keyword=${encodeURIComponent(keyword)}`);
+    }
   };
 
   const RankingList = ({ data }) => (
@@ -80,35 +86,29 @@ const Home = () => {
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px' }}>
       <div style={{ textAlign: 'center', marginBottom: 40 }}>
         <Title level={1}>发现美食</Title>
-        <Row gutter={16} justify="center" style={{ maxWidth: 600, margin: '0 auto' }}>
-          <Col span={8}>
-            <Select
-              placeholder="选择城市"
-              style={{ width: '100%' }}
-              value={city}
-              onChange={setCity}
-              allowClear
-              options={[
-                { value: '北京', label: '北京' },
-                { value: '上海', label: '上海' },
-                { value: '广州', label: '广州' },
-                { value: '深圳', label: '深圳' },
-                { value: '成都', label: '成都' },
-                { value: '杭州', label: '杭州' },
-              ]}
+        <Row gutter={16} justify="center" style={{ maxWidth: 800, margin: '0 auto' }}>
+          <Col span={10}>
+            <Search
+              placeholder="输入地址（如：北京市朝阳区三里屯）"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              onSearch={handleSearch}
+              enterButton="定位搜索"
+              size="large"
             />
           </Col>
-          <Col span={12}>
+          <Col span={10}>
             <Search
-              placeholder="搜索餐厅"
+              placeholder="餐厅名称或类型（如：火锅、咖啡）"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               onSearch={handleSearch}
               enterButton={<SearchOutlined />}
+              size="large"
             />
           </Col>
           <Col span={4}>
-            <Button type="primary" onClick={handleSearch} block>搜索</Button>
+            <Button type="primary" onClick={handleSearch} size="large" block>搜索</Button>
           </Col>
         </Row>
       </div>
