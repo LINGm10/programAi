@@ -8,7 +8,7 @@ const client = axios.create({
 
 // 地址输入提示/自动补全
 exports.inputTips = async (keyword, city) => {
-  const response = await client.get('/input/tips', {
+  const response = await client.get('/assistant/inputtips', {
     params: {
       key: config.key,
       keywords: keyword,
