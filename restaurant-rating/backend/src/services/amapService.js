@@ -58,17 +58,27 @@ exports.searchNearby = async (params) => {
   const { longitude, latitude, keyword, radius = 5000, page = 1, pageSize = 25 } = params;
   const allRestaurants = [];
 
-  // 获取第一页
-  const firstPage = await client.get('/place/around', {
-    params: {
+  const buildParams = (p) => {
+    const base = {
       key: config.key,
-      keywords: keyword || '餐厅',
       location: `${longitude},${latitude}`,
       radius,
       offset: pageSize,
-      page: 1,
+      page: p,
       extensions: 'all',
-    },
+    };
+    // 关键词为空时，使用餐饮大类代码；否则按关键词搜索
+    if (keyword) {
+      base.keywords = keyword;
+    } else {
+      base.types = '050000';
+    }
+    return base;
+  };
+
+  // 获取第一页
+  const firstPage = await client.get('/place/around', {
+    params: buildParams(1),
   });
 
   if (firstPage.data.status !== '1') {
@@ -97,15 +107,7 @@ exports.searchNearby = async (params) => {
   for (let p = 2; p <= maxPages; p++) {
     await new Promise(resolve => setTimeout(resolve, 200)); // 避免频率限制
     const response = await client.get('/place/around', {
-      params: {
-        key: config.key,
-        keywords: keyword || '餐厅',
-        location: `${longitude},${latitude}`,
-        radius,
-        offset: pageSize,
-        page: p,
-        extensions: 'all',
-      },
+      params: buildParams(p),
     });
 
     if (response.data.status === '1' && response.data.pois.length > 0) {
