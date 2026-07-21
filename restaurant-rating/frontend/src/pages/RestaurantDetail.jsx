@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Card, Row, Col, Rate, Tag, List, Avatar, Spin } from 'antd';
-import { EnvironmentOutlined, PhoneOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Rate, Tag, List, Avatar, Spin, Form, Input, Button, Upload, message } from 'antd';
+import { EnvironmentOutlined, PhoneOutlined, PlusOutlined } from '@ant-design/icons';
 import { getRestaurant } from '../services/restaurant';
+import { createReview } from '../services/review';
+import { useAuth } from '../context/AuthContext';
 import AMap from '../components/AMap';
 import StarRating from '../components/StarRating';
 
 const RestaurantDetail = () => {
   const { id } = useParams();
+  const { user } = useAuth();
   const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [form] = Form.useForm();
 
   useEffect(() => {
     loadDetail();
@@ -24,6 +29,35 @@ const RestaurantDetail = () => {
       console.error('加载失败', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSubmitReview = async (values) => {
+    setSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append('restaurant_id', id);
+      formData.append('taste_score', values.taste_score);
+      formData.append('env_score', values.env_score);
+      formData.append('service_score', values.service_score);
+      formData.append('content', values.content || '');
+
+      if (values.images && values.images.fileList) {
+        values.images.fileList.forEach((file) => {
+          if (file.originFileObj) {
+            formData.append('images', file.originFileObj);
+          }
+        });
+      }
+
+      await createReview(formData);
+      message.success('评价成功');
+      form.resetFields();
+      loadDetail();
+    } catch (error) {
+      message.error(error.response?.data?.error || '评价失败');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -67,6 +101,38 @@ const RestaurantDetail = () => {
           style={{ height: 300 }}
         />
       </Card>
+
+      {user && (
+        <Card title="发表评价" style={{ marginTop: 16 }}>
+          <Form form={form} onFinish={handleSubmitReview} layout="vertical">
+            <Form.Item label="口味" name="taste_score" rules={[{ required: true, message: '请评分' }]}>
+              <Rate />
+            </Form.Item>
+            <Form.Item label="环境" name="env_score" rules={[{ required: true, message: '请评分' }]}>
+              <Rate />
+            </Form.Item>
+            <Form.Item label="服务" name="service_score" rules={[{ required: true, message: '请评分' }]}>
+              <Rate />
+            </Form.Item>
+            <Form.Item label="评价内容" name="content">
+              <Input.TextArea rows={4} placeholder="分享你的用餐体验..." />
+            </Form.Item>
+            <Form.Item label="上传图片" name="images">
+              <Upload listType="picture-card" beforeUpload={() => false} maxCount={9}>
+                <div>
+                  <PlusOutlined />
+                  <div style={{ marginTop: 8 }}>上传</div>
+                </div>
+              </Upload>
+            </Form.Item>
+            <Form.Item>
+              <Button type="primary" htmlType="submit" loading={submitting}>
+                提交评价
+              </Button>
+            </Form.Item>
+          </Form>
+        </Card>
+      )}
 
       <Card title="评价" style={{ marginTop: 16 }}>
         <List
