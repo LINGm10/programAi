@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Input, Row, Col, Pagination, Spin, Empty, message, Slider, Tag } from 'antd';
+import React, { useState, useEffect, useRef } from 'react';
+import { Input, Row, Col, Pagination, Spin, Empty, message, Slider, Tag, List, Typography } from 'antd';
 import { useSearchParams } from 'react-router-dom';
-import { EnvironmentOutlined } from '@ant-design/icons';
+import { EnvironmentOutlined, SearchOutlined } from '@ant-design/icons';
 import RestaurantCard from '../components/RestaurantCard';
-import { searchRestaurantsNearby } from '../services/restaurant';
+import { searchRestaurantsNearby, getAddressSuggestions } from '../services/restaurant';
 
 const { Search } = Input;
+const { Text } = Typography;
 
 const RestaurantList = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -15,12 +16,18 @@ const RestaurantList = () => {
   const [page, setPage] = useState(1);
   const [location, setLocation] = useState(null);
   const [radius, setRadius] = useState(5000);
+  const [addressInput, setAddressInput] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const suggestTimer = useRef(null);
 
   const address = searchParams.get('address') || '';
   const keyword = searchParams.get('keyword') || '';
 
   useEffect(() => {
     if (address) {
+      setAddressInput(address);
       loadRestaurants();
     }
   }, [address, keyword, page, radius]);
@@ -39,8 +46,45 @@ const RestaurantList = () => {
     }
   };
 
+  // 地址输入变化时获取建议
+  const handleAddressChange = (e) => {
+    const value = e.target.value;
+    setAddressInput(value);
+
+    if (suggestTimer.current) clearTimeout(suggestTimer.current);
+
+    if (value.length < 1) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    setSuggestLoading(true);
+    suggestTimer.current = setTimeout(async () => {
+      try {
+        const data = await getAddressSuggestions(value);
+        setSuggestions(data.tips || []);
+        setShowSuggestions(true);
+      } catch (error) {
+        console.error('获取地址建议失败', error);
+      } finally {
+        setSuggestLoading(false);
+      }
+    }, 300);
+  };
+
+  // 选择地址建议
+  const handleSelectSuggestion = (tip) => {
+    const fullAddress = tip.district ? `${tip.district}${tip.name}` : tip.name;
+    setAddressInput(fullAddress);
+    setShowSuggestions(false);
+    setSearchParams({ address: fullAddress, keyword });
+    setPage(1);
+  };
+
   const handleSearch = (value) => {
-    setSearchParams({ address: value, keyword });
+    setShowSuggestions(false);
+    setSearchParams({ address: value || addressInput, keyword });
     setPage(1);
   };
 
@@ -54,15 +98,56 @@ const RestaurantList = () => {
       {/* 搜索栏 - 全宽 */}
       <div style={{ marginBottom: 24, padding: 20, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
         <Row gutter={16} align="middle">
-          <Col span={10}>
+          <Col span={10} style={{ position: 'relative' }}>
             <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>地址</label>
-            <Search
-              placeholder="输入地址（如：北京市朝阳区三里屯）"
-              defaultValue={address}
-              onSearch={handleSearch}
-              enterButton="定位"
-              size="large"
-            />
+            <div style={{ position: 'relative' }}>
+              <Input
+                placeholder="输入地址（如：三里屯、中关村）"
+                value={addressInput}
+                onChange={handleAddressChange}
+                onPressEnter={() => handleSearch(addressInput)}
+                size="large"
+                prefix={<EnvironmentOutlined style={{ color: '#1890ff' }} />}
+                suffix={suggestLoading ? <Spin size="small" /> : null}
+              />
+              {showSuggestions && suggestions.length > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  background: '#fff',
+                  border: '1px solid #d9d9d9',
+                  borderRadius: 4,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                  zIndex: 1000,
+                  maxHeight: 300,
+                  overflow: 'auto',
+                  marginTop: 4,
+                }}>
+                  <List
+                    size="small"
+                    dataSource={suggestions}
+                    renderItem={(tip) => (
+                      <List.Item
+                        onClick={() => handleSelectSuggestion(tip)}
+                        style={{
+                          cursor: 'pointer',
+                          padding: '8px 12px',
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#f5f5f5'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <div>
+                          <Text strong>{tip.name}</Text>
+                          {tip.address && <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>{tip.address}</Text>}
+                        </div>
+                      </List.Item>
+                    )}
+                  />
+                </div>
+              )}
+            </div>
           </Col>
           <Col span={8}>
             <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>搜索关键词</label>

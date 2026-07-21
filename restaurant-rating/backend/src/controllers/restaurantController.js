@@ -24,6 +24,20 @@ exports.search = async (req, res) => {
   }
 };
 
+// 地址输入提示/自动补全
+exports.addressSuggest = async (req, res) => {
+  try {
+    const { keyword, city } = req.query;
+    if (!keyword || keyword.length < 1) {
+      return res.json({ tips: [] });
+    }
+    const tips = await amapService.inputTips(keyword, city);
+    res.json({ tips });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // 通过地址搜索周边餐厅
 exports.searchNearby = async (req, res) => {
   try {

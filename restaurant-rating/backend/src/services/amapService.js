@@ -6,6 +6,31 @@ const client = axios.create({
   timeout: 10000,
 });
 
+// 地址输入提示/自动补全
+exports.inputTips = async (keyword, city) => {
+  const response = await client.get('/input/tips', {
+    params: {
+      key: config.key,
+      keywords: keyword,
+      city: city || '',
+      datatype: 'all',
+    },
+  });
+
+  if (response.data.status !== '1') {
+    throw new Error(response.data.info || '地址提示获取失败');
+  }
+
+  return (response.data.tips || []).map((tip) => ({
+    name: tip.name,
+    address: tip.address,
+    district: tip.district,
+    city: tip.city,
+    location: tip.location,
+    id: tip.id,
+  }));
+};
+
 // 地理编码：地址转坐标
 exports.geocode = async (address, city) => {
   const response = await client.get('/geocode/geo', {
