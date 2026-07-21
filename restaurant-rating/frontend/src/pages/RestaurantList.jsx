@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Input, Select, Row, Col, Pagination, Spin, Empty } from 'antd';
+import { Input, Select, Row, Col, Pagination, Spin, Empty, Switch, message } from 'antd';
 import { useSearchParams } from 'react-router-dom';
 import RestaurantCard from '../components/RestaurantCard';
 import AMap from '../components/AMap';
-import { searchRestaurants } from '../services/restaurant';
+import { searchRestaurantsRealtime } from '../services/restaurant';
 
 const { Search } = Input;
 
@@ -24,11 +24,11 @@ const RestaurantList = () => {
   const loadRestaurants = async () => {
     setLoading(true);
     try {
-      const data = await searchRestaurants({ keyword, city, page, limit: 10 });
+      const data = await searchRestaurantsRealtime({ keyword, city, page, limit: 10 });
       setRestaurants(data.restaurants);
       setTotal(data.total);
     } catch (error) {
-      console.error('加载失败', error);
+      message.error('搜索失败');
     } finally {
       setLoading(false);
     }
@@ -70,7 +70,7 @@ const RestaurantList = () => {
             ) : (
               <>
                 {restaurants.map((r) => (
-                  <RestaurantCard key={r.id} restaurant={r} />
+                  <RestaurantCard key={r.amap_id || r.id} restaurant={r} />
                 ))}
                 <Pagination
                   current={page}

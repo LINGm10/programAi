@@ -4,9 +4,25 @@ const amapService = require('../services/amapService');
 
 exports.search = async (req, res) => {
   try {
-    const { keyword, city, category, page = 1, limit = 20 } = req.query;
-    const where = {};
+    const { keyword, city, category, page = 1, limit = 20, longitude, latitude, radius, realtime } = req.query;
 
+    // 如果请求实时搜索，调用高德API
+    if (realtime === 'true' && (longitude || city)) {
+      const result = await amapService.searchRestaurants({
+        keyword,
+        city,
+        category,
+        page: parseInt(page),
+        pageSize: parseInt(limit),
+        longitude,
+        latitude,
+        radius,
+      });
+      return res.json({ restaurants: result.restaurants, total: result.total, page: parseInt(page), realtime: true });
+    }
+
+    // 否则从数据库搜索
+    const where = {};
     if (keyword) where.name = { [Op.like]: `%${keyword}%` };
     if (city) where.city = { [Op.like]: `%${city}%` };
     if (category) where.category = { [Op.like]: `%${category}%` };
@@ -18,7 +34,7 @@ exports.search = async (req, res) => {
       order: [['avg_total', 'DESC']],
     });
 
-    res.json({ restaurants: rows, total: count, page: parseInt(page) });
+    res.json({ restaurants: rows, total: count, page: parseInt(page), realtime: false });
   } catch (error) {
     res.status(500).json({ error: '搜索失败' });
   }

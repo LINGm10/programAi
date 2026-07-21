@@ -7,19 +7,30 @@ const client = axios.create({
 });
 
 exports.searchRestaurants = async (params) => {
-  const { keyword, city, category, page = 1, pageSize = 20 } = params;
+  const { keyword, city, category, page = 1, pageSize = 20, longitude, latitude, radius } = params;
 
-  const response = await client.get('/place/text', {
-    params: {
-      key: config.key,
-      keywords: keyword || '餐厅',
-      city: city || '',
-      types: category || '',
-      offset: pageSize,
-      page,
-      extensions: 'all',
-    },
-  });
+  let url = '/place/around';
+  let apiParams = {
+    key: config.key,
+    keywords: keyword || '餐厅',
+    offset: pageSize,
+    page,
+    extensions: 'all',
+  };
+
+  // 如果有坐标，使用周边搜索
+  if (longitude && latitude) {
+    apiParams.location = `${longitude},${latitude}`;
+    apiParams.radius = radius || 5000;
+  } else {
+    // 否则使用文本搜索
+    url = '/place/text';
+    apiParams.keywords = keyword || '餐厅';
+    apiParams.city = city || '';
+    apiParams.types = category || '';
+  }
+
+  const response = await client.get(url, { params: apiParams });
 
   if (response.data.status !== '1') {
     throw new Error(response.data.info || '高德API调用失败');
