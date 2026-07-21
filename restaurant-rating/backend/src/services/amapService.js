@@ -6,31 +6,80 @@ const client = axios.create({
   timeout: 10000,
 });
 
-exports.searchRestaurants = async (params) => {
-  const { keyword, city, category, page = 1, pageSize = 20, longitude, latitude, radius } = params;
+// 地理编码：地址转坐标
+exports.geocode = async (address, city) => {
+  const response = await client.get('/geocode/geo', {
+    params: {
+      key: config.key,
+      address,
+      city: city || '',
+    },
+  });
 
-  let url = '/place/around';
-  let apiParams = {
-    key: config.key,
-    keywords: keyword || '餐厅',
-    offset: pageSize,
-    page,
-    extensions: 'all',
-  };
-
-  // 如果有坐标，使用周边搜索
-  if (longitude && latitude) {
-    apiParams.location = `${longitude},${latitude}`;
-    apiParams.radius = radius || 5000;
-  } else {
-    // 否则使用文本搜索
-    url = '/place/text';
-    apiParams.keywords = keyword || '餐厅';
-    apiParams.city = city || '';
-    apiParams.types = category || '';
+  if (response.data.status !== '1' || !response.data.geocodes.length) {
+    throw new Error('地址解析失败，请检查地址是否正确');
   }
 
-  const response = await client.get(url, { params: apiParams });
+  const location = response.data.geocodes[0].location.split(',');
+  return {
+    longitude: location[0],
+    latitude: location[1],
+    formattedAddress: response.data.geocodes[0].formatted_address,
+  };
+};
+
+// 周边搜索餐厅
+exports.searchNearby = async (params) => {
+  const { longitude, latitude, keyword, radius = 3000, page = 1, pageSize = 20 } = params;
+
+  const response = await client.get('/place/around', {
+    params: {
+      key: config.key,
+      keywords: keyword || '餐厅',
+      location: `${longitude},${latitude}`,
+      radius,
+      offset: pageSize,
+      page,
+      extensions: 'all',
+    },
+  });
+
+  if (response.data.status !== '1') {
+    throw new Error(response.data.info || '高德API调用失败');
+  }
+
+  return {
+    restaurants: response.data.pois.map((poi) => ({
+      amap_id: poi.id,
+      name: poi.name,
+      address: poi.address,
+      phone: typeof poi.tel === 'string' ? poi.tel : (Array.isArray(poi.tel) ? poi.tel.join(',') : String(poi.tel || '')),
+      category: poi.type,
+      latitude: poi.location?.split(',')[1],
+      longitude: poi.location?.split(',')[0],
+      city: poi.cityname,
+      district: poi.adname,
+      distance: poi.distance,
+    })),
+    total: parseInt(response.data.count) || 0,
+  };
+};
+
+// 文本搜索（按城市）
+exports.searchRestaurants = async (params) => {
+  const { keyword, city, category, page = 1, pageSize = 20 } = params;
+
+  const response = await client.get('/place/text', {
+    params: {
+      key: config.key,
+      keywords: keyword || '餐厅',
+      city: city || '',
+      types: category || '',
+      offset: pageSize,
+      page,
+      extensions: 'all',
+    },
+  });
 
   if (response.data.status !== '1') {
     throw new Error(response.data.info || '高德API调用失败');
@@ -52,20 +101,18 @@ exports.searchRestaurants = async (params) => {
   };
 };
 
+// 批量翻页搜索
 exports.searchAllRestaurants = async (params) => {
   const { keyword, city, category, pageSize = 25 } = params;
   const allRestaurants = [];
 
-  // 获取第一页，确定总数
   const firstPage = await exports.searchRestaurants({ keyword, city, category, page: 1, pageSize });
   allRestaurants.push(...firstPage.restaurants);
 
   const totalPages = Math.ceil(firstPage.total / pageSize);
-  const maxPages = Math.min(totalPages, 40); // 高德API最多返回1000条
+  const maxPages = Math.min(totalPages, 40);
 
-  // 逐页获取剩余数据
   for (let page = 2; page <= maxPages; page++) {
-    // 添加延迟避免频率限制
     await new Promise(resolve => setTimeout(resolve, 300));
     const result = await exports.searchRestaurants({ keyword, city, category, page, pageSize });
     allRestaurants.push(...result.restaurants);
@@ -96,7 +143,7 @@ exports.getRestaurantDetail = async (amapId) => {
     amap_id: poi.id,
     name: poi.name,
     address: poi.address,
-    phone: poi.tel,
+    phone: typeof poi.tel === 'string' ? poi.tel : (Array.isArray(poi.tel) ? poi.tel.join(',') : String(poi.tel || '')),
     category: poi.type,
     latitude: poi.location?.split(',')[1],
     longitude: poi.location?.split(',')[0],
