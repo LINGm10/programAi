@@ -18,6 +18,7 @@ const Header = () => {
           <Link to="/restaurants">找餐厅</Link>
           {user ? (
             <>
+              {user.role === 'admin' && <Link to="/admin/reviews">管理后台</Link>}
               <Link to="/profile"><UserOutlined /> {user.username}</Link>
               <Button icon={<LogoutOutlined />} onClick={() => { logout(); navigate('/'); }}>退出</Button>
             </>

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, Row, Col, Rate, Tag, List, Avatar, Spin, Form, Input, Button, Upload, message } from 'antd';
-import { EnvironmentOutlined, PhoneOutlined, PlusOutlined } from '@ant-design/icons';
+import { EnvironmentOutlined, PhoneOutlined, PlusOutlined, HeartOutlined, HeartFilled } from '@ant-design/icons';
 import { getRestaurant } from '../services/restaurant';
 import { createReview } from '../services/review';
+import { addFavorite, removeFavorite } from '../services/favorite';
 import { useAuth } from '../context/AuthContext';
 import AMap from '../components/AMap';
 import StarRating from '../components/StarRating';
@@ -14,6 +15,7 @@ const RestaurantDetail = () => {
   const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [isFavorited, setIsFavorited] = useState(false);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -29,6 +31,26 @@ const RestaurantDetail = () => {
       console.error('加载失败', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleFavorite = async () => {
+    if (!user) {
+      message.warning('请先登录');
+      return;
+    }
+    try {
+      if (isFavorited) {
+        await removeFavorite(id);
+        setIsFavorited(false);
+        message.success('已取消收藏');
+      } else {
+        await addFavorite(id);
+        setIsFavorited(true);
+        message.success('收藏成功');
+      }
+    } catch (error) {
+      message.error(error.response?.data?.error || '操作失败');
     }
   };
 
@@ -81,6 +103,16 @@ const RestaurantDetail = () => {
             </div>
             <StarRating value={restaurant.avg_total} />
             <p style={{ color: '#999' }}>{restaurant.review_count} 条评价</p>
+            {user && (
+              <Button
+                type={isFavorited ? 'primary' : 'default'}
+                icon={isFavorited ? <HeartFilled /> : <HeartOutlined />}
+                onClick={toggleFavorite}
+                style={{ marginTop: 8 }}
+              >
+                {isFavorited ? '已收藏' : '收藏'}
+              </Button>
+            )}
           </Col>
         </Row>
       </Card>
